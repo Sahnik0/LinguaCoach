@@ -10,11 +10,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const response = await omnidimensionAPI.initiatePhoneCall(phoneNumber, scenario, language)
+    // Validate phone number format (must include country code)
+    const phoneRegex = /^\+\d{1,3}\d{10,}$/
+    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, '')
+    
+    if (!phoneRegex.test(cleanPhone)) {
+      return NextResponse.json({ 
+        error: "Invalid phone number format. Phone number must include country code (e.g., +15551234567)" 
+      }, { status: 400 })
+    }
+
+    const response = await omnidimensionAPI.initiateCall({
+      phoneNumber: cleanPhone, // Use clean formatted number
+      scenario,
+      language,
+      userId,
+      difficulty: body.difficulty ?? "beginner",
+      sessionId: body.sessionId ?? `session_${Date.now()}`
+    })
 
     return NextResponse.json(response)
   } catch (error) {
     console.error("Phone initiation API error:", error)
-    return NextResponse.json({ error: "Failed to initiate phone call" }, { status: 500 })
+    
+    // Provide more specific error messages
+    const errorMessage = error instanceof Error ? error.message : "Failed to initiate phone call"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

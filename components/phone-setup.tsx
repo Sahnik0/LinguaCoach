@@ -29,6 +29,22 @@ import {
 import { serializeForFirestore, deserializeFromFirestore } from "@/lib/firestore-utils"
 import { useToast } from "@/hooks/use-toast"
 import { motion } from "framer-motion"
+import { safeToDate, safeDateFormat } from "@/lib/utils"
+
+interface CallHistoryItem {
+  id: string
+  createdAt: Date
+  scenario?: {
+    title?: string
+    language?: string
+    [key: string]: any
+  }
+  duration?: number
+  status?: string
+  type?: string
+  isMockCall?: boolean
+  [key: string]: any
+}
 
 export function PhoneSetup() {
   const { user } = useAuth()
@@ -37,7 +53,7 @@ export function PhoneSetup() {
   const [isEditingPhone, setIsEditingPhone] = useState(false)
   const [consentGiven, setConsentGiven] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [callHistory, setCallHistory] = useState([])
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([])
   const [showScenarioSelector, setShowScenarioSelector] = useState(false)
   const [showCallInterface, setShowCallInterface] = useState(false)
   const [selectedScenario, setSelectedScenario] = useState(null)
@@ -92,7 +108,12 @@ export function PhoneSetup() {
         const querySnapshot = await getDocs(q1)
         calls = querySnapshot.docs.map((doc) => {
           const data = deserializeFromFirestore(doc.data())
-          return { id: doc.id, ...data }
+          // Use safe date conversion utility
+          return { 
+            id: doc.id, 
+            ...data,
+            createdAt: safeToDate(data.createdAt)
+          }
         })
         console.log("✅ Database indexes working properly")
         setIndexesWorking(true)
@@ -106,7 +127,12 @@ export function PhoneSetup() {
           const querySnapshot = await getDocs(q2)
           const allCalls = querySnapshot.docs.map((doc) => {
             const data = deserializeFromFirestore(doc.data())
-            return { id: doc.id, ...data }
+            // Use safe date conversion utility
+            return { 
+              id: doc.id, 
+              ...data,
+              createdAt: safeToDate(data.createdAt)
+            }
           })
           // Filter for phone calls client-side
           calls = allCalls.filter((call) => call.type === "phone").slice(0, 10)
@@ -120,14 +146,20 @@ export function PhoneSetup() {
             const querySnapshot = await getDocs(q3)
             const allCalls = querySnapshot.docs.map((doc) => {
               const data = deserializeFromFirestore(doc.data())
-              return { id: doc.id, ...data }
+              // Use safe date conversion utility
+              return { 
+                id: doc.id, 
+                ...data,
+                createdAt: safeToDate(data.createdAt)
+              }
             })
             // Filter and sort client-side
             calls = allCalls
               .filter((call) => call.type === "phone")
               .sort((a, b) => {
-                const aTime = a.createdAt?.getTime() || 0
-                const bTime = b.createdAt?.getTime() || 0
+                // Since we ensure createdAt is always a Date object, this is safe
+                const aTime = a.createdAt.getTime()
+                const bTime = b.createdAt.getTime()
                 return bTime - aTime
               })
               .slice(0, 10)
@@ -168,12 +200,14 @@ export function PhoneSetup() {
       return
     }
 
-    // Enhanced phone number validation
-    const phoneRegex = /^\+?[\d\s\-()]{10,}$/
-    if (!phoneRegex.test(phoneNumber)) {
+    // Enhanced phone number validation - must include country code for OmniDimension API
+    const phoneRegex = /^\+\d{1,3}\d{10,}$/ // Must start with + and country code
+    const formattedPhone = phoneNumber.replace(/[\s\-()]/g, '') // Remove formatting chars
+    
+    if (!phoneRegex.test(formattedPhone)) {
       toast({
-        title: "Invalid Phone Number",
-        description: "Please enter a valid phone number with country code (e.g., +1 555-123-4567)",
+        title: "Invalid Phone Number Format",
+        description: "Phone number must include country code (e.g., +15551234567). This is required for making real calls.",
         variant: "destructive",
       })
       return
@@ -184,11 +218,12 @@ export function PhoneSetup() {
       if (user) {
         const userRef = doc(db, "users", user.uid)
         const updateData = {
-          phoneNumber: phoneNumber.trim(),
+          phoneNumber: formattedPhone, // Save the clean formatted number
           phoneUpdatedAt: Timestamp.now(),
         }
         await updateDoc(userRef, serializeForFirestore(updateData))
 
+        setPhoneNumber(formattedPhone) // Update state with formatted number
         setIsEditingPhone(false)
         toast({
           title: "Phone Number Saved",
@@ -348,7 +383,7 @@ export function PhoneSetup() {
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+15551234567 (include country code)"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
@@ -485,8 +520,7 @@ export function PhoneSetup() {
                   <div>
                     <p className="font-medium text-white">{call.scenario?.title || "Practice Call"}</p>
                     <p className="text-sm text-white/70">
-                      {call.scenario?.language || "English"} • {call.createdAt?.toLocaleDateString()} •{" "}
-                      {call.duration || 0}m{call.isMockCall && " • Demo"}
+                      {call.scenario?.language || "English"} • {safeDateFormat(call.createdAt)} • {call.duration || 0}m{call.isMockCall && " • Demo"}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">

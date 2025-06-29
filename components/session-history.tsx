@@ -11,15 +11,36 @@ import { Progress } from "@/components/ui/progress"
 import { MessageCircle, Phone, Download, Search, Calendar, Clock, BarChart3 } from "lucide-react"
 import { db } from "@/lib/firebase"
 import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore"
+import { safeToDate, safeDateFormat } from "@/lib/utils"
+
+interface SessionData {
+  id: string
+  createdAt: Date
+  type?: string
+  language?: string
+  scenario?: {
+    title?: string
+    [key: string]: any
+  }
+  finalAnalysis?: {
+    confidence?: number
+    fluency?: number
+    grammar?: number
+    vocabulary?: number
+    suggestions?: string[]
+    [key: string]: any
+  }
+  [key: string]: any
+}
 
 export function SessionHistory() {
   const { user } = useAuth()
-  const [sessions, setSessions] = useState([])
+  const [sessions, setSessions] = useState<SessionData[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterLanguage, setFilterLanguage] = useState("all")
   const [filterType, setFilterType] = useState("all")
-  const [selectedSession, setSelectedSession] = useState(null)
+  const [selectedSession, setSelectedSession] = useState<SessionData | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -35,11 +56,15 @@ export function SessionHistory() {
       const q = query(sessionsRef, where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(50))
 
       const querySnapshot = await getDocs(q)
-      const sessionsData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-      }))
+      const sessionsData = querySnapshot.docs.map((doc) => {
+        const data = doc.data()
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: safeToDate(data.createdAt),
+        } as SessionData
+      })
 
       setSessions(sessionsData)
     } catch (error) {
@@ -189,7 +214,7 @@ export function SessionHistory() {
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
                           <div className="flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {session.createdAt?.toLocaleDateString()}
+                            {safeDateFormat(session.createdAt)}
                           </div>
                           <div className="flex items-center">
                             <Clock className="h-4 w-4 mr-1" />
@@ -275,7 +300,7 @@ export function SessionHistory() {
             <CardHeader>
               <CardTitle>Session Details</CardTitle>
               <CardDescription>
-                {selectedSession.scenario?.title} • {selectedSession.createdAt?.toLocaleDateString()}
+                {selectedSession.scenario?.title} • {safeDateFormat(selectedSession.createdAt)}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

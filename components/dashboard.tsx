@@ -25,6 +25,15 @@ interface UserStats {
   improvementRate: number
 }
 
+interface CallData {
+  id: string
+  createdAt: Date
+  status?: string
+  duration?: number
+  scenario?: any
+  [key: string]: any
+}
+
 export function Dashboard() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("practice")
@@ -36,7 +45,7 @@ export function Dashboard() {
     bestStreak: 0,
     improvementRate: 0,
   })
-  const [recentCalls, setRecentCalls] = useState([])
+  const [recentCalls, setRecentCalls] = useState<CallData[]>([])
 
   useEffect(() => {
     if (user) {
@@ -83,11 +92,22 @@ export function Dashboard() {
       const callsRef = collection(db, "calls")
       const q = query(callsRef, where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(5))
       const querySnapshot = await getDocs(q)
-      const calls = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-      }))
+      const calls = querySnapshot.docs.map((doc) => {
+        const data = doc.data()
+        const safeDate = (timestamp: any) => {
+          if (!timestamp) return new Date()
+          if (timestamp.toDate) return timestamp.toDate()
+          if (timestamp.getTime) return timestamp
+          if (timestamp.seconds) return new Date(timestamp.seconds * 1000)
+          return new Date(timestamp)
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: safeDate(data.createdAt),
+        } as CallData
+      })
       setRecentCalls(calls)
     } catch (error) {
       console.error("Error loading recent calls:", error)

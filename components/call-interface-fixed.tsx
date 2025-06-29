@@ -52,16 +52,18 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
     return callStatus === "ended" || isAnalyzing;
   }
 
-  // Completely rewritten timer implementation to ensure it doesn't get stuck
+  // Fixed timer implementation with better state management
   useEffect(() => {
     console.log("Call status changed to:", callStatus, "isCallConnected:", isCallConnected);
     
     // Only start timer when call is first connected and not already running
-    if (callStatus === "connected" && !isCallConnected) {
+    if (callStatus === "connected" && !isCallConnected && !durationInterval.current) {
       console.log("Call newly connected - initializing timer");
-      
-      // Set connection state first
       setIsCallConnected(true);
+      
+      // Set the call start time to now
+      callStartTime.current = new Date();
+      console.log("Call start time set to:", callStartTime.current);
       
       // Clear any existing timer to prevent duplicates
       if (durationInterval.current) {
@@ -70,69 +72,46 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
         durationInterval.current = null;
       }
       
-      // Set the call start time and initial duration
-      callStartTime.current = new Date();
+      // Initialize with starting duration = 0
       setCallDuration(0);
-      console.log("Call start time set to:", callStartTime.current);
       
-      // Start a completely new timer with reliable interval
+      // Start a new timer that updates every second
       console.log("Starting new timer interval");
-      const newInterval = setInterval(() => {
+      durationInterval.current = setInterval(() => {
         if (callStartTime.current) {
           const now = new Date();
           const elapsedSeconds = Math.floor((now.getTime() - callStartTime.current.getTime()) / 1000);
-          // Use a callback to ensure we're working with the latest state
-          setCallDuration(prevDuration => {
-            // Only update if the new duration is greater to prevent flickering
-            if (elapsedSeconds > prevDuration) {
-              console.log("Timer tick - elapsed seconds:", elapsedSeconds);
-              return elapsedSeconds;
-            }
-            return prevDuration;
-          });
+          console.log("Timer tick at", now, "- elapsed seconds:", elapsedSeconds);
+          setCallDuration(elapsedSeconds);
+        } else {
+          console.warn("Timer tick but callStartTime is null");
         }
       }, 1000);
-      
-      // Store the new interval
-      durationInterval.current = newInterval;
     }
     
-    // Handle call ending - clean up interval and freeze duration
-    if ((callStatus === "ended" || callStatus === "error") && isCallConnected) {
+    // Cleanup when call ends - only clear if we haven't already cleared
+    if ((callStatus === "ended" || callStatus === "error") && durationInterval.current) {
       console.log("Call ended/error - cleaning up timer");
-      
-      // Calculate final duration
-      let finalDuration = callDuration;
-      if (callStartTime.current) {
-        finalDuration = Math.floor((new Date().getTime() - callStartTime.current.getTime()) / 1000);
-        console.log("Final call duration:", finalDuration);
-      }
-      
-      // Clear interval first
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-        durationInterval.current = null;
-      }
-      
-      // Reset connection state
       setIsCallConnected(false);
-      
-      // Set final duration and reset start time
-      setCallDuration(finalDuration);
-      callStartTime.current = null;
+      clearInterval(durationInterval.current);
+      durationInterval.current = null;
+      // Save the final duration value to prevent it from resetting
+      if (callStartTime.current) {
+        const finalDuration = Math.floor((new Date().getTime() - callStartTime.current.getTime()) / 1000);
+        setCallDuration(finalDuration);
+        // Reset callStartTime to prevent further calculations
+        callStartTime.current = null;
+      }
     }
     
-    // Also stop timer if we're in analysis phase (fallback)
+    // Don't restart timer if we're in analysis phase
     if (isAnalyzing && durationInterval.current) {
       console.log("Analysis phase - ensuring timer is stopped");
       clearInterval(durationInterval.current);
       durationInterval.current = null;
-      
-      // Reset connection state to be safe
-      setIsCallConnected(false);
     }
     
-    // Cleanup on unmount or dependency changes
+    // Cleanup function for component unmount or dependency changes
     return () => {
       if (durationInterval.current) {
         console.log("Effect cleanup - clearing interval");
@@ -140,32 +119,13 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
         durationInterval.current = null;
       }
     };
-  }, [callStatus, isAnalyzing])
+  }, [callStatus, isAnalyzing, callDuration])
 
   useEffect(() => {
-    // Reset all state on component mount
-    setCallDuration(0);
-    setIsCallConnected(false);
-    callStartTime.current = null;
-    
-    // Clear any existing intervals (defensive)
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-      durationInterval.current = null;
-    }
-    
-    if (statusCheckInterval.current) {
-      clearInterval(statusCheckInterval.current);
-      statusCheckInterval.current = null;
-    }
-    
-    // Start the call process
-    initiateCall();
-    
-    // Clean up on unmount
+    initiateCall()
     return () => {
-      if (durationInterval.current) clearInterval(durationInterval.current);
-      if (statusCheckInterval.current) clearInterval(statusCheckInterval.current);
+      if (durationInterval.current) clearInterval(durationInterval.current)
+      if (statusCheckInterval.current) clearInterval(statusCheckInterval.current)
     }
   }, [])
 
@@ -265,13 +225,13 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
   }
 
   const startStatusChecking = (callId: string) => {
-    // Create a local variable to track if we've already handled the connection to prevent duplicate toasts
-    let hasConnected = false;
+    // Create a local variable to track if we've already shown the connection notification
+    let hasNotifiedConnection = false;
     
     statusCheckInterval.current = setInterval(async () => {
       try {
         // Skip status checks if call has ended or we're analyzing
-        if (callStatus === "ended" || isAnalyzing) {
+        if (shouldStopStatusChecks()) {
           console.log("Call already ended or analyzing, skipping status check");
           if (statusCheckInterval.current) {
             clearInterval(statusCheckInterval.current);
@@ -283,12 +243,11 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
         const status = await omnidimensionAPI.getCallStatus(callId)
         console.log("Real call status check:", status);
 
-        // Only process connection state change once to prevent notification spamming
-        if (status.status === "connected" && callStatus !== "connected" && !hasConnected) {
+        if (status.status === "connected" && callStatus !== "connected" && !hasNotifiedConnection) {
           console.log("Real call connecting - setting status to connected")
           
-          // Mark as connected locally to prevent duplicate handling
-          hasConnected = true;
+          // Mark as connected locally to prevent duplicate notifications
+          hasNotifiedConnection = true;
           
           // Update session status first
           if (sessionId) {
@@ -319,12 +278,8 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
             clearInterval(statusCheckInterval.current);
             statusCheckInterval.current = setInterval(async () => {
               try {
-                // First check the current state with a fresh reference
-                const currentCallState = callStatus;
-                const currentAnalyzingState = isAnalyzing;
-                
-                // Skip if call has already ended
-                if (currentCallState === "ended" || currentAnalyzingState) {
+                // Use our helper function to avoid stale closures
+                if (shouldStopStatusChecks()) {
                   if (statusCheckInterval.current) {
                     clearInterval(statusCheckInterval.current);
                     statusCheckInterval.current = null;
@@ -358,13 +313,13 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
   }
 
   const startMockStatusChecking = (callId: string) => {
-    // Create a local variable to track if we've already handled the connection to prevent duplicate toasts
-    let hasConnected = false;
+    // Create a local variable to track if we've already shown the connection notification
+    let hasNotifiedConnection = false;
     
     statusCheckInterval.current = setInterval(async () => {
       try {
         // Skip status checks if call has ended or we're analyzing
-        if (callStatus === "ended" || isAnalyzing) {
+        if (shouldStopStatusChecks()) {
           console.log("Call already ended or analyzing, skipping mock status check");
           if (statusCheckInterval.current) {
             clearInterval(statusCheckInterval.current);
@@ -376,12 +331,11 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
         const status = await mockCallService.getCallStatus(callId)
         console.log("Mock call status check:", status);
 
-        // Only process connection state change once to prevent notification spamming
-        if (status.status === "connected" && callStatus !== "connected" && !hasConnected) {
+        if (status.status === "connected" && callStatus !== "connected" && !hasNotifiedConnection) {
           console.log("Mock call connecting - setting status to connected")
           
-          // Mark as connected locally to prevent duplicate handling
-          hasConnected = true;
+          // Mark as connected locally to prevent duplicate notifications
+          hasNotifiedConnection = true;
           
           // Update session status first
           if (sessionId) {
@@ -413,12 +367,8 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
             clearInterval(statusCheckInterval.current);
             statusCheckInterval.current = setInterval(async () => {
               try {
-                // First check the current state with a fresh reference
-                const currentCallState = callStatus;
-                const currentAnalyzingState = isAnalyzing;
-                
-                // Skip if call has already ended
-                if (currentCallState === "ended" || currentAnalyzingState) {
+                // Use our helper function to avoid stale closures
+                if (shouldStopStatusChecks()) {
                   if (statusCheckInterval.current) {
                     clearInterval(statusCheckInterval.current);
                     statusCheckInterval.current = null;
@@ -468,19 +418,15 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
       return;
     }
     
-    console.log("Ending call - current duration:", callDuration);
-    
-    // Calculate final duration explicitly to ensure accuracy
+    console.log("Ending call - final duration:", callDuration);
+    // Calculate final duration explicitly if timer is still running
     let finalDuration = callDuration;
-    if (callStartTime.current) {
+    if (callStartTime.current && durationInterval.current) {
       finalDuration = Math.floor((new Date().getTime() - callStartTime.current.getTime()) / 1000);
       console.log("Calculated final duration:", finalDuration);
-      
-      // Ensure it's at least the current value to prevent going backwards
-      finalDuration = Math.max(finalDuration, callDuration);
     }
     
-    // Clear all intervals immediately to prevent further updates
+    // Clear all intervals first before changing state
     if (durationInterval.current) {
       console.log("Clearing duration interval");
       clearInterval(durationInterval.current);
@@ -495,12 +441,9 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
     
     // Reset call connection state
     setIsCallConnected(false);
-    
-    // Important: Preserve the final timestamp before nulling it out
     callStartTime.current = null;
     
-    // Freeze the duration at its final value before changing other state
-    console.log("Setting final call duration to:", finalDuration);
+    // Freeze the duration at its final value
     setCallDuration(finalDuration);
     
     // Set call status to ended after clearing intervals to prevent race conditions
@@ -624,7 +567,7 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
       const callTypeText = isUsingMockService ? "demo" : "practice"
       toast({
         title: "Call Complete",
-        description: `Excellent ${callTypeText} session! You spoke for ${Math.floor(callDuration / 60)} minutes and ${callDuration % 60} seconds.`,
+        description: `Excellent ${callTypeText} session! You spoke for ${Math.floor(finalDuration / 60)} minutes and ${finalDuration % 60} seconds.`,
       })
     } catch (error) {
       console.error("Error processing call end:", error)
@@ -639,19 +582,15 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
   }
 
   const formatDuration = (seconds: number) => {
-    // Extra guard against invalid inputs - ensure we have a positive integer
-    if (isNaN(seconds) || seconds === undefined || seconds === null) {
+    // Ensure seconds is a valid number
+    if (isNaN(seconds) || seconds < 0) {
       console.warn("Invalid duration value:", seconds);
       seconds = 0;
     }
     
-    // Force conversion to number and ensure positive
-    seconds = Math.max(0, Math.floor(Number(seconds)));
-    
     // Format as mm:ss
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60) // Ensure we have a whole number
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
@@ -815,11 +754,14 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
                 {/* Status Text */}
                 <h2 className="text-2xl font-bold text-white mb-2">{getStatusText()}</h2>
 
-                {/* Duration - show for both connected and ended calls */}
-                {(callStatus === "connected" || callStatus === "ended") && (
-                  <p className="text-lg text-white/70 mb-6" data-testid="call-duration">
-                    {formatDuration(callDuration || 0)}
-                  </p>
+                {/* Duration */}
+                {callStatus === "connected" && (
+                  <p className="text-lg text-white/70 mb-6">{formatDuration(callDuration)}</p>
+                )}
+                
+                {/* Final Duration */}
+                {callStatus === "ended" && (
+                  <p className="text-lg text-white/70 mb-6">Duration: {formatDuration(callDuration)}</p>
                 )}
 
                 {/* Scenario Description */}
