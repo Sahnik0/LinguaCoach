@@ -1,5 +1,5 @@
-const OMNIDIMENSION_API_KEY = "f476IWWNeTiZJbpueIpITKpqNaBqrFrv5YGPwZaXCgw"
-const OMNIDIMENSION_BASE_URL = "https://api.omnidimension.ai/v1"
+const OMNIDIMENSION_API_KEY = process.env.OMNIDIMENSION_API_KEY || ""
+const OMNIDIMENSION_BASE_URL = process.env.OMNIDIMENSION_BASE_URL || "https://api.omnidimension.ai/v1"
 
 export interface CallRequest {
   phoneNumber: string
