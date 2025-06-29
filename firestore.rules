@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users can read and write their own sessions
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Users can read and write their own reports
+    match /reports/{reportId} {
+      allow read, write: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Scenarios are readable by all authenticated users
+    match /scenarios/{scenarioId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admins can write scenarios
+    }
+  }
+}
