@@ -90,136 +90,561 @@ export function ElegantAuthCard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
+      animate={{ opacity: 1, scale: 1, rotate: -2 }}
+      transition={{ 
+        duration: 0.6, 
+        ease: "easeOut"
+      }}
       className="elegant-auth-container"
+      style={{
+        transform: 'rotate(-2deg)',
+        transition: 'all 0.3s ease',
+        width: '100%',
+        maxWidth: '600px'
+      }}
     >
-      <div className="elegant-auth-card">
-        <div className="auth-header">
-          <h2 className="auth-title">{activeTab === "signin" ? "Sign In" : "Sign Up"}</h2>
-          <p className="auth-subtitle">Welcome to the future of language learning</p>
-        </div>
+      <motion.div 
+        className="elegant-auth-card"
+        whileHover={{ 
+          rotate: 0,
+          scale: 1.02,
+          boxShadow: "20px 20px 0 rgba(0,0,0,0.1)"
+        }}
+        whileTap={{
+          scale: 0.98
+        }}
+        transition={{ duration: 0.3 }}
+        style={{
+          border: '1px solid rgba(255,255,255,0.2)',
+          boxShadow: '15px 15px 32px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.1)',
+          background: 'rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          position: 'relative',
+          overflow: 'hidden',
+          width: '100%',
+          padding: '20px',
+          borderRadius: '16px'
+        }}
+      >
+        {/* Animated Banner */}
+        <motion.div 
+          className="auth-banner"
+          style={{
+            position: 'absolute',
+            top: '3px',
+            right: '-95px',
+            background: 'linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.8))',
+            color: '#fff',
+            padding: '10px',
+            width: '350px',
+            textAlign: 'center',
+            transform: 'rotate(45deg)',
+            fontWeight: 'bold',
+            fontSize: '16px',
+            letterSpacing: '2px',
+            overflow: 'hidden',
+            transition: 'background 0.5s ease',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '4px'
+          }}
+          whileHover={{
+            background: 'linear-gradient(135deg, rgba(239,68,68,0.6), rgba(239,68,68,0.8))'
+          }}
+        >
+          <motion.span
+            className="banner-text"
+            style={{
+              display: 'inline-block',
+              position: 'absolute',
+              left: '13%',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              transition: 'all 0.5s ease'
+            }}
+            whileHover={{
+              opacity: 0,
+              y: -20
+            }}
+          >
+            {activeTab === "signin" ? "SIGN IN" : "SIGN UP"}
+          </motion.span>
+          <motion.span
+            className="banner-text-hover"
+            style={{
+              display: 'inline-block',
+              position: 'absolute',
+              left: '13%',
+              top: '50%',
+              transform: 'translateY(60%)',
+              opacity: 0,
+              transition: 'all 0.5s ease'
+            }}
+            whileHover={{
+              opacity: 1,
+              y: -10
+            }}
+          >
+            JOIN US
+          </motion.span>
+        </motion.div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="auth-tabs">
-          <TabsList className="auth-tabs-list">
-            <TabsTrigger value="signin" className="auth-tab">
-              Sign In
-            </TabsTrigger>
-            <TabsTrigger value="signup" className="auth-tab">
-              Sign Up
-            </TabsTrigger>
-          </TabsList>
+        <motion.div 
+          className="auth-header"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <h2 className="auth-title" style={{
+            fontSize: '20px',
+            fontWeight: '700',
+            color: '#000',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+            display: 'block',
+            borderBottom: '2px solid rgba(0,0,0,0.6)',
+            width: '70%'
+          }}>
+            {activeTab === "signin" ? "Sign In" : "Sign Up"}
+          </h2>
+          <p className="auth-subtitle" style={{
+            fontSize: '14px',
+            lineHeight: '1.4',
+            color: '#333',
+            marginBottom: '15px',
+            paddingBottom: '8px'
+          }}>
+            Welcome to the future of language learning
+          </p>
+        </motion.div>
 
-          <TabsContent value="signin" className="auth-tab-content">
-            <form onSubmit={handleSignIn} className="auth-form">
-              <div className="input-group">
-                <Label htmlFor="signin-email" className="input-label">
-                  Email
-                </Label>
-                <Input
-                  id="signin-email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                  className="elegant-input"
-                />
-              </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="auth-tabs">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <TabsList className="auth-tabs-list" style={{
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(15px)',
+                borderRadius: '12px'
+              }}>
+                <TabsTrigger value="signin" className="auth-tab" style={{
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: activeTab === 'signin' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.05)',
+                  color: activeTab === 'signin' ? '#fff' : '#000',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '8px'
+                }}>
+                  Sign In
+                </TabsTrigger>
+                <TabsTrigger value="signup" className="auth-tab" style={{
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: activeTab === 'signup' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.05)',
+                  color: activeTab === 'signup' ? '#fff' : '#000',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '8px'
+                }}>
+                  Sign Up
+                </TabsTrigger>
+              </TabsList>
+            </motion.div>
 
-              <div className="input-group">
-                <Label htmlFor="signin-password" className="input-label">
-                  Password
-                </Label>
-                <div className="password-input-wrapper">
+            <TabsContent value="signin" className="auth-tab-content">
+              <motion.form 
+                onSubmit={handleSignIn} 
+                className="auth-form"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}
+              >
+                <motion.div 
+                  className="input-group"
+                  whileFocus={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Label htmlFor="signin-email" className="input-label" style={{
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '14px'
+                  }}>
+                    Email
+                  </Label>
                   <Input
-                    id="signin-password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    id="signin-email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
                     required
-                    className="elegant-input password-input"
+                    className="elegant-input"
+                    style={{
+                      padding: '12px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      fontSize: '16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '8px',
+                      color: '#000',
+                      transition: 'all 0.3s ease'
+                    }}
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                </motion.div>
 
-              <div className="forgot-password">
-                <a href="#" className="forgot-link">
-                  Forgot Password?
-                </a>
-              </div>
+                <motion.div 
+                  className="input-group"
+                  whileFocus={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Label htmlFor="signin-password" className="input-label" style={{
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '14px'
+                  }}>
+                    Password
+                  </Label>
+                  <div className="password-input-wrapper" style={{ position: 'relative' }}>
+                    <Input
+                      id="signin-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      required
+                      className="elegant-input password-input"
+                      style={{
+                        padding: '12px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        fontSize: '16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '8px',
+                        color: '#000',
+                        transition: 'all 0.3s ease',
+                        paddingRight: '50px'
+                      }}
+                    />
+                    <motion.button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)} 
+                      className="password-toggle"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ 
+                        scale: 0.9,
+                        rotate: [0, -10, 10, -10, 0]
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </motion.button>
+                  </div>
+                </motion.div>
 
-              <Button type="submit" className="elegant-button primary" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </TabsContent>
+                <motion.div 
+                  className="forgot-password"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
+                >
+                  <a href="#" className="forgot-link" style={{
+                    color: '#000',
+                    textDecoration: 'underline',
+                    fontWeight: 'bold'
+                  }}>
+                    Forgot Password?
+                  </a>
+                </motion.div>
 
-          <TabsContent value="signup" className="auth-tab-content">
-            <form onSubmit={handleSignUp} className="auth-form">
-              <div className="input-group">
-                <Label htmlFor="signup-name" className="input-label">
-                  Full Name
-                </Label>
-                <Input
-                  id="signup-name"
-                  name="displayName"
-                  placeholder="Enter your full name"
-                  required
-                  className="elegant-input"
-                />
-              </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.4 }}
+                >
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    className="elegant-button primary"
+                    whileHover={{ 
+                      background: 'rgba(255,255,255,0.2)',
+                      color: '#000',
+                      y: -5,
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                    }}
+                    whileTap={{
+                      y: 0,
+                      boxShadow: 'none',
+                      scale: [1, 0.95, 1.05, 0.95, 1]
+                    }}
+                    style={{
+                      width: '100%',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.8))',
+                      backdropFilter: 'blur(20px)',
+                      color: '#fff',
+                      padding: '10px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    {isLoading ? "Signing in..." : "Sign In"}
+                  </motion.button>
+                </motion.div>
+              </motion.form>
+            </TabsContent>
 
-              <div className="input-group">
-                <Label htmlFor="signup-email" className="input-label">
-                  Email
-                </Label>
-                <Input
-                  id="signup-email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                  className="elegant-input"
-                />
-              </div>
-
-              <div className="input-group">
-                <Label htmlFor="signup-password" className="input-label">
-                  Password
-                </Label>
-                <div className="password-input-wrapper">
+            <TabsContent value="signup" className="auth-tab-content">
+              <motion.form 
+                onSubmit={handleSignUp} 
+                className="auth-form"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}
+              >
+                <motion.div 
+                  className="input-group"
+                  whileFocus={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Label htmlFor="signup-name" className="input-label" style={{
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '14px'
+                  }}>
+                    Full Name
+                  </Label>
                   <Input
-                    id="signup-password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
+                    id="signup-name"
+                    name="displayName"
+                    placeholder="Enter your full name"
                     required
-                    className="elegant-input password-input"
+                    className="elegant-input"
+                    style={{
+                      padding: '12px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      fontSize: '16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '8px',
+                      color: '#000',
+                      transition: 'all 0.3s ease'
+                    }}
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                </motion.div>
 
-              <Button type="submit" className="elegant-button primary" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+                <motion.div 
+                  className="input-group"
+                  whileFocus={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Label htmlFor="signup-email" className="input-label" style={{
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '14px'
+                  }}>
+                    Email
+                  </Label>
+                  <Input
+                    id="signup-email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                    className="elegant-input"
+                    style={{
+                      padding: '12px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      fontSize: '16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '8px',
+                      color: '#000',
+                      transition: 'all 0.3s ease'
+                    }}
+                  />
+                </motion.div>
 
-        <div className="social-auth">
-          <div className="social-divider">
-            <span className="social-divider-text">Or continue with</span>
+                <motion.div 
+                  className="input-group"
+                  whileFocus={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Label htmlFor="signup-password" className="input-label" style={{
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '14px'
+                  }}>
+                    Password
+                  </Label>
+                  <div className="password-input-wrapper" style={{ position: 'relative' }}>
+                    <Input
+                      id="signup-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password"
+                      required
+                      className="elegant-input password-input"
+                      style={{
+                        padding: '12px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        fontSize: '16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '8px',
+                        color: '#000',
+                        transition: 'all 0.3s ease',
+                        paddingRight: '50px'
+                      }}
+                    />
+                    <motion.button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)} 
+                      className="password-toggle"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ 
+                        scale: 0.9,
+                        rotate: [0, -10, 10, -10, 0]
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </motion.button>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.4 }}
+                >
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    className="elegant-button primary"
+                    whileHover={{ 
+                      background: 'rgba(255,255,255,0.2)',
+                      color: '#000',
+                      y: -5,
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                    }}
+                    whileTap={{
+                      y: 0,
+                      boxShadow: 'none',
+                      scale: [1, 0.95, 1.05, 0.95, 1]
+                    }}
+                    style={{
+                      width: '100%',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.8))',
+                      backdropFilter: 'blur(20px)',
+                      color: '#fff',
+                      padding: '10px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    {isLoading ? "Creating account..." : "Create Account"}
+                  </motion.button>
+                </motion.div>
+              </motion.form>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+
+        <motion.div 
+          className="social-auth"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+        >
+          <div className="social-divider" style={{
+            textAlign: 'center',
+            margin: '15px 0',
+            borderBottom: '1px solid rgba(255,255,255,0.2)',
+            paddingBottom: '8px'
+          }}>
+            <span className="social-divider-text" style={{
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              fontSize: '12px',
+              background: 'rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(10px)',
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}>Or continue with</span>
           </div>
 
-          <div className="social-buttons">
-            <button onClick={handleGoogleSignIn} disabled={isLoading} className="social-button google">
+          <div className="social-buttons" style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap'
+          }}>
+            <motion.button 
+              onClick={handleGoogleSignIn} 
+              disabled={isLoading} 
+              className="social-button google"
+              whileHover={{ 
+                scale: 1.05,
+                y: -5,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+              }}
+              whileTap={{ 
+                scale: 0.95,
+                y: 0,
+                boxShadow: 'none'
+              }}
+              style={{
+                flex: 1,
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(15px)',
+                color: '#000',
+                padding: '8px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '8px'
+              }}
+            >
               <svg className="social-icon" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -239,9 +664,30 @@ export function ElegantAuthCard() {
                 />
               </svg>
               Google
-            </button>
+            </motion.button>
 
-            <button className="social-button apple" disabled>
+            <motion.button 
+              className="social-button apple" 
+              disabled
+              style={{
+                flex: 1,
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(15px)',
+                color: '#6b7280',
+                padding: '8px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'not-allowed',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '8px',
+                opacity: 0.5
+              }}
+            >
               <svg className="social-icon" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -249,9 +695,30 @@ export function ElegantAuthCard() {
                 />
               </svg>
               Apple
-            </button>
+            </motion.button>
 
-            <button className="social-button twitter" disabled>
+            <motion.button 
+              className="social-button twitter" 
+              disabled
+              style={{
+                flex: 1,
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(15px)',
+                color: '#6b7280',
+                padding: '8px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'not-allowed',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '8px',
+                opacity: 0.5
+              }}
+            >
               <svg className="social-icon" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -259,23 +726,41 @@ export function ElegantAuthCard() {
                 />
               </svg>
               Twitter
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="auth-footer">
-          <p className="terms-text">
+        <motion.div 
+          className="auth-footer"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+        >
+          <p className="terms-text" style={{
+            fontSize: '10px',
+            color: '#666',
+            textAlign: 'center',
+            marginTop: '15px'
+          }}>
             By continuing, you agree to our{" "}
-            <a href="#" className="terms-link">
+            <a href="#" className="terms-link" style={{
+              color: '#000',
+              textDecoration: 'underline',
+              fontWeight: 'bold'
+            }}>
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="#" className="terms-link">
+            <a href="#" className="terms-link" style={{
+              color: '#000',
+              textDecoration: 'underline',
+              fontWeight: 'bold'
+            }}>
               Privacy Policy
             </a>
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </motion.div>
   )
 }

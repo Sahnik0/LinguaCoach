@@ -132,7 +132,7 @@ export function LandingPage() {
           </div>
 
           {/* Auth Section */}
-          <div className="max-w-md mx-auto">
+          <div className="max-w-lg mx-auto">
             <ElegantAuthCard />
           </div>
         </div>
