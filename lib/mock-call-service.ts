@@ -1,3 +1,5 @@
+import { analyzeConversationWithAI } from '@/lib/conversation-analysis';
+
 export interface MockCallData {
   callId: string
   status: "initiating" | "ringing" | "connected" | "ended"
@@ -15,11 +17,26 @@ export interface MockCallData {
   suggestions: string[]
   strengths: string[]
   weaknesses: string[]
+  detailedFeedback?: string
+  improvementAreas?: string[]
+  nextSteps?: string[]
 }
 
-class MockCallService {
+// Define the interface for the mock service methods
+interface IMockCallService {
+  initiateCall(scenario: any, language: string, difficulty: string): Promise<{ callId: string; status: string; message: string }>;
+  getCallStatus(callId: string): Promise<{ status: string; transcript?: string }>;
+  endCall(callId: string): Promise<{ success: boolean; message: string }>;
+  getCallAnalysis(callId: string): Promise<MockCallData>;
+  updateDemoTranscript(callId: string, text: string): Promise<boolean>;
+  cleanup(): void;
+}
+
+// Implement the class with the interface
+class MockCallService implements IMockCallService {
   private calls: Map<string, MockCallData> = new Map()
   private callTimers: Map<string, NodeJS.Timeout> = new Map()
+  private demoTranscript: Map<string, string> = new Map()
 
   generateCallId(): string {
     return `mock_call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -33,11 +50,16 @@ class MockCallService {
     return new Promise((resolve) => {
       const callId = this.generateCallId()
 
-      const mockCall: MockCallData = {
+      // Store a blank transcript initially - we'll build it via demo voice
+      const mockCall: MockCallData & { scenario?: any, language?: string, difficulty?: string } = {
         callId,
         status: "initiating",
         duration: 0,
-        transcript: this.generateMockTranscript(scenario, language),
+        transcript: "",
+        // Store scenario, language and difficulty for later analysis
+        scenario: scenario,
+        language: language,
+        difficulty: difficulty,
         analysis: this.generateMockAnalysis(difficulty),
         suggestions: this.generateMockSuggestions(difficulty),
         strengths: this.generateMockStrengths(),
@@ -111,13 +133,64 @@ class MockCallService {
   }
 
   getCallAnalysis(callId: string): Promise<MockCallData> {
-    return new Promise((resolve) => {
-      const call = this.calls.get(callId)
-      if (!call) {
-        throw new Error("Call not found")
-      }
+    return new Promise(async (resolve, reject) => {
+      try {
+        const call = this.calls.get(callId)
+        if (!call) {
+          throw new Error("Call not found")
+        }
+        
+        // Only run AI analysis if we have a transcript
+        if (call.transcript && call.transcript.length > 0) {
+          console.log("Running AI analysis on transcript for call", callId);
+          
+          // Get the scenario from the call if available (we stored it during initiation)
+          const scenario = (call as any).scenario || {};
+          const language = (call as any).language || "English";
+          const difficulty = (call as any).difficulty || "Intermediate";
+          
+          // Use real AI analysis instead of mock data
+          const aiAnalysis = await analyzeConversationWithAI(
+            call.transcript, 
+            language, 
+            difficulty,
+            scenario
+          );
+          
+          // Update the call with AI analysis
+          call.analysis = {
+            fluency: aiAnalysis.fluency,
+            confidence: aiAnalysis.confidence,
+            grammar: aiAnalysis.grammar,
+            vocabulary: aiAnalysis.vocabulary,
+            pronunciation: aiAnalysis.pronunciation,
+            overallScore: aiAnalysis.overallScore,
+          };
+          call.suggestions = aiAnalysis.suggestions;
+          call.strengths = aiAnalysis.strengths;
+          call.weaknesses = aiAnalysis.weaknesses;
+          
+          // Add additional fields if available
+          if (aiAnalysis.detailedFeedback) call.detailedFeedback = aiAnalysis.detailedFeedback;
+          if (aiAnalysis.improvementAreas) call.improvementAreas = aiAnalysis.improvementAreas;
+          if (aiAnalysis.nextSteps) call.nextSteps = aiAnalysis.nextSteps;
+          
+          // Save the updated call
+          this.calls.set(callId, call);
+        }
 
-      resolve(call)
+        resolve(call)
+      } catch (error) {
+        console.error("Error getting call analysis:", error);
+        
+        // Still return the call even if analysis fails
+        const call = this.calls.get(callId);
+        if (call) {
+          resolve(call);
+        } else {
+          reject(error);
+        }
+      }
     })
   }
 
@@ -136,6 +209,38 @@ class MockCallService {
     }, 1000)
 
     this.callTimers.set(callId, timer)
+  }
+  
+  /**
+   * Update the transcript for a call from the interactive demo
+   * This allows the demo voice interface to update the transcript in real-time
+   */
+  updateDemoTranscript(callId: string, text: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const call = this.calls.get(callId)
+      if (!call) {
+        console.error(`Call ${callId} not found when updating transcript`);
+        resolve(false)
+        return
+      }
+      
+      // Append to the existing transcript with line breaks
+      let currentTranscript = this.demoTranscript.get(callId) || ""
+      currentTranscript += (currentTranscript ? "\n" : "") + text
+      
+      // Store in our transcript map
+      this.demoTranscript.set(callId, currentTranscript)
+      
+      // Update the call transcript as well
+      call.transcript = currentTranscript
+      
+      // Log the transcript so far (helpful for debugging transcription issues)
+      console.log(`Updated transcript for call ${callId}, length: ${currentTranscript.length} chars`);
+      
+      this.calls.set(callId, call)
+      
+      resolve(true)
+    })
   }
 
   private generateMockTranscript(scenario: any, language: string): string {
@@ -263,4 +368,5 @@ User: It was a Thai restaurant. The pad thai was amazing, and the service was ex
   }
 }
 
-export const mockCallService = new MockCallService()
+// Export a singleton instance with the interface type
+export const mockCallService: IMockCallService = new MockCallService();

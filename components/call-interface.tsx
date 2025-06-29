@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Phone, PhoneOff, Volume2, VolumeX, BarChart3, AlertTriangle, Wifi, WifiOff } from "lucide-react"
+import { ArrowLeft, Phone, PhoneOff, Volume2, VolumeX, BarChart3, AlertTriangle, Wifi, WifiOff, Mic, Volume } from "lucide-react"
 import { omnidimensionAPI, type CallAnalysis } from "@/lib/omnidimension"
 import { groqAnalyticsAPI } from "@/lib/groq"
 import { mockCallService } from "@/lib/mock-call-service"
+import { DemoVoice } from "@/components/demo-voice"
 import { SpaceBackground } from "@/components/space-background"
 import { EnhancedCard } from "@/components/enhanced-card"
 import { db } from "@/lib/firebase"
@@ -42,6 +43,8 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
   const [isUsingMockService, setIsUsingMockService] = useState(false)
   const [apiConnectionFailed, setApiConnectionFailed] = useState(false)
   const [isCallConnected, setIsCallConnected] = useState(false)
+  const [demoTranscript, setDemoTranscript] = useState<string[]>([])
+  const [showDemoInterface, setShowDemoInterface] = useState(false)
   const callStartTime = useRef<Date | null>(null)
   const durationInterval = useRef<NodeJS.Timeout | null>(null)
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null)
@@ -199,8 +202,13 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
       // Try real API first, fallback to mock service
       try {
         console.log("Attempting real phone call via Voice API...")
+        
+        // Ensure phone number is properly formatted with country code
+        const cleanedPhoneNumber = phoneNumber.replace(/[\s\-()]/g, '')
+        console.log(`Formatted phone number before API call: ${cleanedPhoneNumber}`)
+        
         const callResponse = await omnidimensionAPI.initiateCall({
-          phoneNumber: phoneNumber,
+          phoneNumber: cleanedPhoneNumber, // Send the cleaned phone number
           language: scenario.language,
           scenario: scenario.context,
           difficulty: scenario.difficulty,
@@ -319,12 +327,8 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
             clearInterval(statusCheckInterval.current);
             statusCheckInterval.current = setInterval(async () => {
               try {
-                // First check the current state with a fresh reference
-                const currentCallState = callStatus;
-                const currentAnalyzingState = isAnalyzing;
-                
-                // Skip if call has already ended
-                if (currentCallState === "ended" || currentAnalyzingState) {
+                // Use our helper function to check if we should stop
+                if (shouldStopStatusChecks()) {
                   if (statusCheckInterval.current) {
                     clearInterval(statusCheckInterval.current);
                     statusCheckInterval.current = null;
@@ -413,12 +417,8 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
             clearInterval(statusCheckInterval.current);
             statusCheckInterval.current = setInterval(async () => {
               try {
-                // First check the current state with a fresh reference
-                const currentCallState = callStatus;
-                const currentAnalyzingState = isAnalyzing;
-                
-                // Skip if call has already ended
-                if (currentCallState === "ended" || currentAnalyzingState) {
+                // Use our helper function to check if we should stop
+                if (shouldStopStatusChecks()) {
                   if (statusCheckInterval.current) {
                     clearInterval(statusCheckInterval.current);
                     statusCheckInterval.current = null;
@@ -466,6 +466,11 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
     if (callStatus === "ended" || isAnalyzing) {
       console.log("Call already ended or analyzing, ignoring duplicate end request");
       return;
+    }
+    
+    // Disable demo voice interface if active
+    if (showDemoInterface) {
+      setShowDemoInterface(false);
     }
     
     console.log("Ending call - current duration:", callDuration);
@@ -654,6 +659,37 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
     
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
+  
+  // Handle transcript updates from the DemoVoice component
+  const handleDemoTranscriptUpdate = (text: string) => {
+    setDemoTranscript(prev => [...prev, text]);
+    
+    // Also update the transcript in the mock call service for analysis later
+    if (callId && isUsingMockService) {
+      mockCallService.updateDemoTranscript(callId, text).catch(error => {
+        console.error("Error updating demo transcript:", error);
+      });
+    }
+    
+    // Auto-scroll the transcript after a brief delay to ensure the DOM has updated
+    setTimeout(() => {
+      const anchor = document.getElementById('demo-transcript-end');
+      if (anchor) {
+        anchor.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  }
+  
+  // Activate demo interface when in mock service mode and connected
+  useEffect(() => {
+    if (isUsingMockService && callStatus === "connected") {
+      setShowDemoInterface(true);
+    } else {
+      setShowDemoInterface(false);
+    }
+  }, [isUsingMockService, callStatus]);
+
+
 
   const getStatusColor = () => {
     switch (callStatus) {
@@ -825,6 +861,47 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
                 {/* Scenario Description */}
                 <p className="text-white/70 mb-6 text-sm">{scenario.context}</p>
 
+                {/* Demo Voice Interface - only show when using mock service and connected */}
+                {showDemoInterface && (
+                  <div className="mb-6 p-4 border border-white/10 rounded-lg bg-white/5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-4">
+                        <span className="flex items-center text-white">
+                          <Mic className="h-4 w-4 mr-2 text-green-400" /> Voice Input
+                        </span>
+                        <span className="flex items-center text-white">
+                          <Volume className="h-4 w-4 mr-2 text-blue-400" /> Voice Output
+                        </span>
+                      </div>
+                      
+                      <a 
+                        href="/DEMO_VOICE_USAGE.md" 
+                        target="_blank"
+                        className="text-xs text-blue-400 hover:text-blue-300 underline"
+                      >
+                        Help & Troubleshooting
+                      </a>
+                    </div>
+                    
+                    <DemoVoice 
+                      isActive={showDemoInterface} 
+                      scenario={scenario}
+                      language={scenario.language || 'English'}
+                      onTranscriptUpdate={handleDemoTranscriptUpdate}
+                    />
+                    
+                    <div className="mt-4 p-2 border border-white/10 bg-white/5 rounded text-xs text-white/80">
+                      <p className="mb-1"><strong>Tips:</strong></p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Allow microphone permissions when prompted</li>
+                        <li>Speak naturally when the green "Listening" indicator is active</li>
+                        <li>Wait for the assistant to finish speaking before responding</li>
+                        <li>Speak clearly and at a moderate pace</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
                 {/* Instructions for different states */}
                 {callStatus === "ringing" && !isUsingMockService && (
                   <Alert className="mb-6 bg-blue-500/10 border-blue-500/20">
@@ -853,6 +930,43 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
                         : "Great! You're connected. Practice your conversation skills with the AI coach."}
                     </AlertDescription>
                   </Alert>
+                )}
+                
+                {/* Demo conversation transcript */}
+                {showDemoInterface && demoTranscript.length > 0 && (
+                  <div className="mt-4 mb-6 max-h-60 overflow-y-auto border border-white/10 rounded-lg p-3 bg-black/20">
+                    <h3 className="flex justify-between items-center text-white text-sm font-medium mb-2">
+                      <span>Conversation Transcript</span>
+                      <span className="text-xs text-white/50">{demoTranscript.length} messages</span>
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      {demoTranscript.map((text, index) => {
+                        const isUser = text.startsWith("User:");
+                        const isSystem = text.startsWith("System:");
+                        
+                        let messageClass = "";
+                        if (isUser) {
+                          messageClass = "bg-green-900/20 border border-green-500/20 text-green-100";
+                        } else if (isSystem) {
+                          messageClass = "bg-yellow-900/20 border border-yellow-500/20 text-yellow-100";
+                        } else {
+                          messageClass = "bg-blue-900/20 border border-blue-500/20 text-blue-100";
+                        }
+                        
+                        return (
+                          <div 
+                            key={index}
+                            className={`p-2 rounded-md text-xs ${messageClass}`}
+                          >
+                            {text}
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Auto-scroll anchor */}
+                      <div id="demo-transcript-end" />
+                    </div>
+                  </div>
                 )}
 
                 {/* Call Controls */}
@@ -990,6 +1104,44 @@ export function CallInterface({ scenario, phoneNumber, onCallComplete, onBack }:
                             {callAnalysis.suggestions.map((suggestion, index) => (
                               <li key={index} className="text-orange-400">
                                 • {suggestion}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Display detailed feedback if available */}
+                      {callAnalysis.detailedFeedback && (
+                        <div>
+                          <h4 className="font-medium mb-2 text-white">Detailed Feedback</h4>
+                          <p className="text-sm text-white/80 italic border-l-2 border-orange-500/50 pl-3 py-1">
+                            {callAnalysis.detailedFeedback}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Display improvement areas if available */}
+                      {callAnalysis.improvementAreas && callAnalysis.improvementAreas.length > 0 && (
+                        <div>
+                          <h4 className="font-medium mb-2 text-white">Focus Areas</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {callAnalysis.improvementAreas.map((area, index) => (
+                              <span key={index} className="text-xs bg-white/10 text-white/80 px-2 py-1 rounded-full">
+                                {area}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Display next steps if available */}
+                      {callAnalysis.nextSteps && callAnalysis.nextSteps.length > 0 && (
+                        <div>
+                          <h4 className="font-medium mb-2 text-white">Next Steps</h4>
+                          <ul className="text-sm space-y-1">
+                            {callAnalysis.nextSteps.map((step, index) => (
+                              <li key={index} className="text-blue-400">
+                                ▶ {step}
                               </li>
                             ))}
                           </ul>

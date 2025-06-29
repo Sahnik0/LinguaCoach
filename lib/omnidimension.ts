@@ -1,9 +1,16 @@
-const OMNIDIM_API_KEY = process.env.OMNIDIM_API_KEY || ""
-const OMNIDIM_BASE_URL = process.env.OMNIDIM_BASE_URL || "https://backend.omnidim.io/api/v1"
+// Use NEXT_PUBLIC_ prefixed variables for client-side access
+const OMNIDIM_API_KEY = process.env.NEXT_PUBLIC_OMNIDIM_API_KEY || process.env.OMNIDIM_API_KEY || ""
+const OMNIDIM_BASE_URL = process.env.NEXT_PUBLIC_OMNIDIM_BASE_URL || process.env.OMNIDIM_BASE_URL || "https://backend.omnidim.io/api/v1"
 // Configure whether to use the proxy (always use in browser environment)
 const USE_PROXY = typeof window !== 'undefined'
 // Proxy URL for browser-side requests
 const PROXY_BASE_URL = '/api/proxy/omnidimension'
+
+// Log configuration in development to help with debugging
+if (process.env.NODE_ENV === 'development') {
+  console.log(`Omnidimension API Config - API key exists: ${!!OMNIDIM_API_KEY}, Base URL: ${OMNIDIM_BASE_URL}`)
+  console.log(`Using proxy for Omnidimension API: ${USE_PROXY ? 'Yes' : 'No'}`)
+}
 
 // Configuration for real voice API services
 const VOICE_API_CONFIG = {
@@ -61,6 +68,9 @@ export interface CallAnalysis {
   suggestions: string[]
   strengths: string[]
   weaknesses: string[]
+  detailedFeedback?: string
+  improvementAreas?: string[]
+  nextSteps?: string[]
 }
 
 export interface Agent {
@@ -102,31 +112,56 @@ export class OmnidimensionAPI {
    */
   private async checkOmniDimService(): Promise<boolean> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+      // Log API configuration first for debugging
+      console.log(`Checking OmniDim service - API key exists: ${!!this.apiKey}, Base URL: ${this.baseUrl}`)
+      
+      if (!this.apiKey) {
+        console.error("OmniDim API key is missing or empty. Check your .env.local file.")
+        return false
+      }
 
-      // Try to list agents as a health check
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000) // Increase timeout to 8 seconds
+      
+      // Always use proxy for client-side and direct API for server-side
       const url = USE_PROXY 
         ? `${PROXY_BASE_URL}?endpoint=agents` 
         : `${this.baseUrl}/agents`
       
+      console.log(`OmniDim service check URL: ${url}`)
+      
       const headers: Record<string, string> = USE_PROXY
-        ? { 'Content-Type': 'application/json' }
+        ? { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         : {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
 
       const response = await fetch(url, {
         method: 'GET',
         signal: controller.signal,
-        headers
+        headers,
+        // Add cache control to prevent caching
+        cache: 'no-store'
       })
       
       clearTimeout(timeoutId)
-      return response.ok
+      
+      const isAvailable = response.ok
+      console.log(`OmniDim service check result: ${isAvailable ? 'Available ✓' : 'Unavailable ✗'} (Status: ${response.status})`)
+      
+      if (!isAvailable) {
+        const errorText = await response.text()
+        console.error(`OmniDim service error response: ${errorText}`)
+      }
+      
+      return isAvailable
     } catch (error) {
-      console.log('OmniDim service not available:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('OmniDim service not available:', error instanceof Error ? error.message : 'Unknown error')
       return false
     }
   }
@@ -154,10 +189,14 @@ export class OmnidimensionAPI {
         : `${this.baseUrl}/agents`
         
       const headers: Record<string, string> = USE_PROXY
-        ? { 'Content-Type': 'application/json' }
+        ? { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         : {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
         
       const listResponse = await fetch(listUrl, {
@@ -195,6 +234,9 @@ export class OmnidimensionAPI {
         ? `${PROXY_BASE_URL}?endpoint=agents` 
         : `${this.baseUrl}/agents`
       
+      // Set updated headers with Accept header
+      headers['Accept'] = 'application/json'
+      
       const createResponse = await fetch(createUrl, {
         method: 'POST',
         signal: createController.signal,
@@ -231,6 +273,16 @@ export class OmnidimensionAPI {
     try {
       console.log("Checking OmniDim voice service availability...")
       
+      // Validate API configuration first
+      if (!this.apiKey) {
+        console.error("OmniDim API key is missing. Please check your .env.local file configuration.")
+        throw new Error("OmniDim API key is not configured. Please check your environment variables.")
+      }
+      
+      // Log API configuration for debugging
+      console.log(`API Configuration - Using key: ${this.apiKey.substring(0, 5)}..., Base URL: ${this.baseUrl}`)
+      console.log(`Using proxy for requests: ${USE_PROXY ? 'Yes' : 'No'}, Proxy URL: ${PROXY_BASE_URL}`)
+      
       // First check if service is available
       const isAvailable = await this.isServiceAvailable()
       if (!isAvailable) {
@@ -246,7 +298,16 @@ export class OmnidimensionAPI {
         agentId = agent.id
       }
 
-      console.log(`Initiating call to ${request.phoneNumber} with agent ${agentId}`)
+      // Enhanced phone number validation and logging
+      const cleanedPhoneNumber = request.phoneNumber.replace(/[\s\-()]/g, '')
+      const phoneRegex = /^\+\d{1,3}\d{10,}$/ // Must start with + and country code
+      
+      if (!phoneRegex.test(cleanedPhoneNumber)) {
+        console.error(`Invalid phone number format: ${cleanedPhoneNumber}. Must include country code (e.g., +15551234567)`)
+        throw new Error("Phone number must include country code (e.g., +15551234567)")
+      }
+      
+      console.log(`Initiating call to validated phone number: ${cleanedPhoneNumber} with agent ${agentId}`)
 
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout for call dispatch
@@ -255,12 +316,21 @@ export class OmnidimensionAPI {
       const url = USE_PROXY 
         ? `${PROXY_BASE_URL}?endpoint=calls/dispatch` 
         : `${this.baseUrl}/calls/dispatch`
+      
+      // Log full request details for debugging
+      console.log(`Call dispatch API URL: ${url}`)
+      console.log(`Phone number being used: ${cleanedPhoneNumber}`)
+      console.log(`Agent ID being used: ${agentId}`)
         
       const headers: Record<string, string> = USE_PROXY
-        ? { 'Content-Type': 'application/json' }
+        ? { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         : {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
       
       const response = await fetch(url, {
@@ -269,7 +339,7 @@ export class OmnidimensionAPI {
         headers,
         body: JSON.stringify({
           agent_id: parseInt(agentId), // Must be integer as per API docs
-          to_number: request.phoneNumber, // Must include country code (e.g., +15551234567)
+          to_number: cleanedPhoneNumber, // Using validated phone number with country code
           call_context: {
             // Language coaching context
             scenario: request.scenario,
@@ -289,16 +359,21 @@ export class OmnidimensionAPI {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("OmniDim API Error Response:", errorText)
+        console.error("OmniDim API Error Response for phone call to", cleanedPhoneNumber, ":", errorText)
         throw new Error(`Call dispatch failed: ${response.status} ${response.statusText}`)
       }
 
-      const data = await response.json()
+      // Log successful API call details
+      console.log(`Call successfully dispatched to ${cleanedPhoneNumber}`)
+      
+      // Handle different response formats and structures
+      const responseData = await response.json()
+      const data = responseData.json || responseData // Handle potentially wrapped responses
       console.log("Call dispatched successfully:", data)
 
       return {
-        callId: data.call_log_id || data.id || `call_${Date.now()}`,
-        status: "initiated",
+        callId: data.requestId || data.call_log_id || data.id || `call_${Date.now()}`,
+        status: data.status || "initiated",
         message: data.message || "Call dispatched successfully",
         estimatedDuration: 5,
       }
@@ -327,14 +402,18 @@ export class OmnidimensionAPI {
 
       // Use the call log endpoint to get call status
       const url = USE_PROXY 
-        ? `${PROXY_BASE_URL}?endpoint=calls/${callId}` 
-        : `${this.baseUrl}/calls/${callId}`
+        ? `${PROXY_BASE_URL}?endpoint=calls/logs/${callId}` 
+        : `${this.baseUrl}/calls/logs/${callId}`
         
       const headers: Record<string, string> = USE_PROXY
-        ? { 'Content-Type': 'application/json' }
+        ? { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         : {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
       
       const response = await fetch(url, {
@@ -403,14 +482,18 @@ export class OmnidimensionAPI {
 
       // Get the full call log which should include analysis
       const url = USE_PROXY 
-        ? `${PROXY_BASE_URL}?endpoint=calls/${callId}` 
-        : `${this.baseUrl}/calls/${callId}`
+        ? `${PROXY_BASE_URL}?endpoint=calls/logs/${callId}` 
+        : `${this.baseUrl}/calls/logs/${callId}`
         
       const headers: Record<string, string> = USE_PROXY
-        ? { 'Content-Type': 'application/json' }
+        ? { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         : {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
       
       const response = await fetch(url, {
@@ -425,10 +508,12 @@ export class OmnidimensionAPI {
         throw new Error(`Call analysis request failed: ${response.statusText}`)
       }
 
-      const data = await response.json()
+      // Handle different response formats
+      const responseData = await response.json()
+      const data = responseData.json || responseData // Handle wrapped responses
       
       // Extract analysis data from the call log
-      const transcript = data.transcript || data.call_transcript || ""
+      const transcript = data.transcript || data.call_transcript || data.full_transcript || ""
       
       // Create basic analysis if detailed analysis isn't available
       const analysis = data.analysis || {

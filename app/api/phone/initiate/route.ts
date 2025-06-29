@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    console.log(`API route: Initiating call to validated phone number: ${cleanPhone}`)
+    
     const response = await omnidimensionAPI.initiateCall({
       phoneNumber: cleanPhone, // Use clean formatted number
       scenario,
@@ -28,6 +30,8 @@ export async function POST(req: NextRequest) {
       difficulty: body.difficulty ?? "beginner",
       sessionId: body.sessionId ?? `session_${Date.now()}`
     })
+    
+    console.log(`API route: Call initiated successfully with response:`, JSON.stringify(response))
 
     return NextResponse.json(response)
   } catch (error) {

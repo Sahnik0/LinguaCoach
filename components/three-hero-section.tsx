@@ -592,7 +592,7 @@ export const ThreeHeroSection = () => {
       <div className="scroll-sections">
         {[...Array(2)].map((_, i) => {
           const titles = {
-            0: "PRACTICE",
+            0: "LINGUA",
             1: "MASTER",
           }
 
