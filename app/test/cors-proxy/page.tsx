@@ -1,4 +1,6 @@
 // app/test/cors-proxy/page.tsx
+"use client";
+
 import React from 'react'
 import TestCorsProxy from '@/components/test-cors-proxy'
 

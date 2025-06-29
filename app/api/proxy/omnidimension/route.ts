@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Route handlers are always executed on the server, so it's safe to access
+// non-NEXT_PUBLIC_ environment variables here
 const OMNIDIM_API_KEY = process.env.OMNIDIM_API_KEY || "";
 const OMNIDIM_BASE_URL = process.env.OMNIDIM_BASE_URL || "https://backend.omnidim.io/api/v1";
 
 /**
  * Proxy handler for Omnidimension API calls to avoid CORS issues
+ * This is a server-side API route that forwards requests to the Omnidimension API
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +24,15 @@ export async function GET(request: NextRequest) {
     
     console.log(`Proxying GET request to: ${targetUrl}`);
     
+    // Check if we have API key configured
+    if (!OMNIDIM_API_KEY) {
+      console.error("Missing OMNIDIM_API_KEY in environment variables");
+      return NextResponse.json(
+        { error: "API configuration error - missing API key" }, 
+        { status: 500 }
+      );
+    }
+    
     // Forward the request to the Omnidimension API
     const response = await fetch(targetUrl, {
       method: 'GET',
@@ -30,11 +42,51 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get the response data
-    const data = await response.json();
-
-    // Return the response from the proxy
-    return NextResponse.json(data, { status: response.status });
+    // Check if the response is successful
+    if (!response.ok) {
+      console.error(`Error response from API: ${response.status} ${response.statusText}`);
+      // Try to return error information safely
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          return NextResponse.json(errorData, { status: response.status });
+        } else {
+          const errorText = await response.text();
+          return new NextResponse(errorText, { 
+            status: response.status,
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        }
+      } catch (parseError) {
+        return NextResponse.json(
+          { error: `API returned ${response.status} ${response.statusText}` }, 
+          { status: response.status }
+        );
+      }
+    }
+    
+    // Try to parse the response properly
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return NextResponse.json(data, { status: response.status });
+      } else {
+        const text = await response.text();
+        return new NextResponse(text, { 
+          status: response.status,
+          headers: { 'Content-Type': contentType || 'text/plain' }
+        });
+      }
+    } catch (parseError) {
+      console.error("Error parsing API response:", parseError);
+      const text = await response.text();
+      return new NextResponse(text, { 
+        status: response.status,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
   } catch (error) {
     console.error("Proxy error:", error);
     return NextResponse.json(
@@ -58,12 +110,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse the request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
     
     // Build the full URL to the Omnidimension API
     const targetUrl = `${OMNIDIM_BASE_URL}/${endpoint}`;
     
     console.log(`Proxying POST request to: ${targetUrl}`);
+
+    // Check if we have API key configured
+    if (!OMNIDIM_API_KEY) {
+      console.error("Missing OMNIDIM_API_KEY in environment variables");
+      return NextResponse.json(
+        { error: "API configuration error - missing API key" }, 
+        { status: 500 }
+      );
+    }
 
     // Forward the request to the Omnidimension API
     const response = await fetch(targetUrl, {
@@ -75,11 +144,51 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    // Get the response data
-    const data = await response.json();
-
-    // Return the response from the proxy
-    return NextResponse.json(data, { status: response.status });
+    // Check if the response is successful
+    if (!response.ok) {
+      console.error(`Error response from API: ${response.status} ${response.statusText}`);
+      // Try to return error information safely
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          return NextResponse.json(errorData, { status: response.status });
+        } else {
+          const errorText = await response.text();
+          return new NextResponse(errorText, { 
+            status: response.status,
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        }
+      } catch (parseError) {
+        return NextResponse.json(
+          { error: `API returned ${response.status} ${response.statusText}` }, 
+          { status: response.status }
+        );
+      }
+    }
+    
+    // Try to parse the response properly
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return NextResponse.json(data, { status: response.status });
+      } else {
+        const text = await response.text();
+        return new NextResponse(text, { 
+          status: response.status,
+          headers: { 'Content-Type': contentType || 'text/plain' }
+        });
+      }
+    } catch (parseError) {
+      console.error("Error parsing API response:", parseError);
+      const text = await response.text();
+      return new NextResponse(text, { 
+        status: response.status,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
   } catch (error) {
     console.error("Proxy error:", error);
     return NextResponse.json(
